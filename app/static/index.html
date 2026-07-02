@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audiarr</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;background:#030712;color:#f3f4f6}
+    .tab-active{border-bottom:2px solid #22c55e;color:#22c55e!important}
+    .spinner{border:2px solid rgba(255,255,255,.2);border-top-color:#22c55e;border-radius:50%;width:16px;height:16px;animation:spin .6s linear infinite;display:inline-block;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .fade-in{animation:fadeIn .3s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    input[type="checkbox"]{accent-color:#22c55e;width:18px;height:18px;cursor:pointer;border-radius:4px;border:2px solid #4b5563;background:transparent;transition:all .15s}
+    input[type="checkbox"]:checked{background:#22c55e;border-color:#22c55e}
+    .scroll-thin::-webkit-scrollbar{width:5px}
+    .scroll-thin::-webkit-scrollbar-track{background:transparent}
+    .scroll-thin::-webkit-scrollbar-thumb{background:#374151;border-radius:10px}
+    .progress-bar{height:4px;background:#374151;border-radius:4px;overflow:hidden}
+    .progress-bar-fill{height:100%;background:#22c55e;border-radius:4px;transition:width .5s ease}
+    .queue-item{transition:all .3s ease}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center}
+    .modal-content{background:#1f2937;border-radius:16px;padding:24px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto}
+  </style>
+</head>
+<body class="min-h-screen pb-32 scroll-thin">
+<div id="app" class="max-w-6xl mx-auto px-4 py-5">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+      <button id="homeBtn" class="text-gray-400 hover:text-white transition" title="Inicio">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      </button>
+      <h1 class="text-3xl font-bold tracking-tight"><span class="text-green-400">Audi</span><span>arr</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-gray-500 hidden sm:inline">${escHtml(USERNAME)}</span>
+      <button id="queuePanelBtn" class="text-gray-400 hover:text-white relative text-sm" title="Cola de descargas">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+        <span id="queueBadgeDot" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full hidden"></span>
+      </button>
+      <button id="adminBtn" class="admin-only text-gray-400 hover:text-white text-sm" title="Administración">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+      </button>
+      <button id="settingsBtn" class="admin-only text-gray-400 hover:text-white text-sm" title="Ajustes">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </button>
+      <button id="logoutBtn" class="text-gray-400 hover:text-red-400 text-sm transition" title="Cerrar sesión">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Queue panel -->
+  <div id="queuePanel" class="hidden mb-4 bg-gray-900 rounded-xl p-4 border border-gray-700 fade-in">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-sm font-semibold text-gray-300">Cola de descargas</h3>
+      <span id="queueCount" class="text-xs text-gray-500">0 pendientes</span>
+    </div>
+    <div id="queueList" class="space-y-2 max-h-60 overflow-y-auto scroll-thin"></div>
+  </div>
+
+  <!-- Search mode -->
+  <div class="flex gap-2 mb-3 flex-wrap">
+    <button id="searchModeBtn" class="bg-green-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Buscar</button>
+    <button id="playlistModeBtn" class="bg-gray-700 text-gray-300 text-xs px-4 py-2 rounded-lg font-medium">Playlist</button>
+  </div>
+  <div class="relative mb-5">
+    <input id="searchInput" type="text" placeholder="Buscar artista o canción..."
+      class="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 px-5 pl-12 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+    <svg class="absolute left-4 top-3.5 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+    <button id="clearSearch" class="absolute right-4 top-2.5 text-gray-500 hover:text-white hidden p-1 text-xl">&times;</button>
+  </div>
+
+  <!-- Playlist URL input -->
+  <div id="playlistUrlInput" class="mb-4 hidden">
+    <div class="flex gap-2">
+      <input id="playlistUrlField" type="text" placeholder="Pega la URL de la playlist de Spotify..."
+        class="flex-1 bg-gray-800/80 border border-gray-700 rounded-xl py-3 px-5 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+      <button id="parsePlaylistBtn" class="bg-green-600 hover:bg-green-500 text-white px-5 rounded-xl transition font-medium text-sm">Cargar</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsArea" class="mb-8"></div>
+
+  <!-- Pagination -->
+  <div id="pagination" class="flex items-center justify-center gap-4 mb-8 hidden">
+    <button id="prevPage" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm transition disabled:opacity-30 disabled:cursor-not-allowed">← Anterior</button>
+    <span id="pageInfo" class="text-sm text-gray-400"></span>
+    <button id="nextPage" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm transition disabled:opacity-30 disabled:cursor-not-allowed">Siguiente →</button>
+  </div>
+
+  <!-- Library tabs -->
+  <div class="border-b border-gray-700/60 mb-4">
+    <nav class="flex gap-6">
+      <button class="tab-btn py-3 text-sm font-medium text-gray-400 hover:text-white" data-tab="artists">Artistas</button>
+      <button class="tab-btn py-3 text-sm font-medium text-gray-400 hover:text-white" data-tab="albums">Álbumes</button>
+      <button class="tab-btn py-3 text-sm font-medium text-gray-400 hover:text-white" data-tab="tracks">Canciones</button>
+    </nav>
+  </div>
+  <div id="tabArtists" class="tab-content grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+  <div id="tabAlbums" class="tab-content hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+  <div id="tabTracks" class="tab-content hidden"></div>
+
+  <!-- Player -->
+  <div id="player" class="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-700/60 px-4 py-3 hidden z-50">
+    <div class="max-w-6xl mx-auto flex items-center gap-4">
+      <button id="playerClose" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+      <div class="flex-1 min-w-0"><p id="playerTrack" class="text-sm font-medium truncate"></p><p id="playerArtist" class="text-xs text-gray-400 truncate"></p></div>
+      <audio id="audioPlayer" controls class="h-9 w-72"></audio>
+    </div>
+  </div>
+</div>
+
+<!-- Admin modal -->
+<div id="adminModal" class="hidden modal-overlay">
+  <div class="modal-content max-w-2xl">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">Administración</h2>
+      <button id="closeAdmin" class="text-gray-400 hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="mb-6">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">Usuarios</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-700/50 text-gray-400 uppercase text-xs">
+            <tr><th class="py-2.5 px-3 text-left">ID</th><th class="py-2.5 px-3 text-left">Usuario</th><th class="py-2.5 px-3 text-left">Rol</th><th class="py-2.5 px-3 text-left hidden sm:table-cell">Creado</th><th class="py-2.5 px-3 text-right">Acción</th></tr>
+          </thead>
+          <tbody id="adminUserTableBody"><tr><td colspan="5" class="text-gray-500 text-sm py-8 text-center">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="border-t border-gray-700/40 pt-4">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">Crear usuario</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <input id="adminNewUser" type="text" placeholder="Usuario" class="bg-gray-800 border border-gray-600 rounded-lg py-2 px-3 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <input id="adminNewPass" type="password" placeholder="Contraseña" class="bg-gray-800 border border-gray-600 rounded-lg py-2 px-3 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <select id="adminNewRole" class="bg-gray-800 border border-gray-600 rounded-lg py-2 px-3 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="user">Usuario</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button id="adminCreateUserBtn" class="bg-green-600 hover:bg-green-500 text-white text-sm py-2 rounded-lg transition">Crear</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div id="settingsModal" class="hidden modal-overlay">
+  <div class="modal-content">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">Ajustes</h2>
+      <button id="closeSettings" class="text-gray-400 hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-sm text-gray-300 block mb-1.5">Carpeta de descargas</label>
+        <input id="settingDownloadDir" type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg py-2.5 px-4 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <p class="text-xs text-gray-500 mt-1">Ruta absoluta o relativa al directorio del proyecto</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input id="settingMonitor" type="checkbox">
+        <label for="settingMonitor" class="text-sm text-gray-300">Monitorizar carpeta (detecta archivos eliminados)</label>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button id="syncFilesBtn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg transition">Sincronizar archivos</button>
+        <button id="saveSettings" class="bg-green-600 hover:bg-green-500 text-white text-sm px-6 py-2 rounded-lg transition ml-auto">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=(s,p)=>(p||document).querySelector(s)
+const $$=(s,p)=>[...(p||document).querySelectorAll(s)]
+let isPlaylistMode=false,searchPage=0,searchTotal=0
+const PAGE_SIZE=10
+
+const TOKEN=localStorage.getItem('audiarr_token')
+const USERNAME=localStorage.getItem('audiarr_username')||''
+const ROLE=localStorage.getItem('audiarr_role')||''
+if(!TOKEN&&window.location.pathname!=='/login'){window.location.href='/login'}
+const IS_ADMIN=ROLE==='admin'
+if(!IS_ADMIN){document.querySelectorAll('.admin-only').forEach(el=>el.remove())}
+
+const origFetch=window.fetch
+window.fetch=function(url,opts={}){
+  if(TOKEN){opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+TOKEN}
+  return origFetch(url,opts).then(res=>{
+    if(res.status===401&&!url.toString().includes('/api/auth/')){
+      localStorage.removeItem('audiarr_token');localStorage.removeItem('audiarr_username');localStorage.removeItem('audiarr_role')
+      window.location.href='/login'
+    }
+    return res
+  })
+}
+
+function msToTime(ms){if(!ms)return'--:--';const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000);return`${m}:${s.toString().padStart(2,'0')}`}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+function escHtml(s){if(s==null)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function showToast(msg){const t=document.createElement('div');t.className='fixed top-4 right-4 bg-gray-800 border border-gray-600 text-gray-100 px-5 py-3 rounded-xl text-sm shadow-lg z-50 fade-in';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2500)}
+function logout(){localStorage.removeItem('audiarr_token');localStorage.removeItem('audiarr_username');localStorage.removeItem('audiarr_role');window.location.href='/login'}
+
+// ── Home ──
+$('#homeBtn').addEventListener('click',goHome)
+$('#logoutBtn').addEventListener('click',logout)
+function goHome(){
+  $('#searchInput').value='';$('#clearSearch').classList.add('hidden');$('#pagination').classList.add('hidden')
+  $('#playlistUrlInput').classList.add('hidden');$('#playlistUrlField').value=''
+  $('#resultsArea').innerHTML='';$$('.tab-btn')[0].click();window.scrollTo({top:0,behavior:'smooth'})
+  if(isPlaylistMode){toggleSearchMode()}
+}
+
+// ── Settings ──
+if($('#settingsBtn'))$('#settingsBtn').addEventListener('click',async()=>{
+  try{const r=await(await fetch('/api/settings')).json()
+    $('#settingDownloadDir').value=r.download_dir||''
+    $('#settingMonitor').checked=r.monitor_enabled==='true'
+    $('#settingsModal').classList.remove('hidden')}catch(e){showToast('Error al cargar ajustes')}
+})
+$('#closeSettings').addEventListener('click',()=>$('#settingsModal').classList.add('hidden'))
+$('#settingsModal').addEventListener('click',e=>{if(e.target===$('#settingsModal'))$('#settingsModal').classList.add('hidden')})
+$('#saveSettings').addEventListener('click',async()=>{
+  const dd=$('#settingDownloadDir').value.trim(),me=$('#settingMonitor').checked?'true':'false'
+  try{await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`download_dir=${encodeURIComponent(dd)}&monitor_enabled=${me}`})
+    showToast('Ajustes guardados');$('#settingsModal').classList.add('hidden')}catch(e){showToast('Error')}
+})
+if($('#syncFilesBtn'))$('#syncFilesBtn').addEventListener('click',async()=>{
+  try{const r=await(await fetch('/api/library/sync',{method:'POST'})).json()
+    showToast(`Sincronizado: ${r.lost??0} archivos perdidos, ${r.restored??0} restaurados, ${r.orphans_removed?.length||0} artistas huérfanos eliminados`)
+    loadLibraryArtists()}catch(e){showToast('Error')}
+})
+
+// ── Admin panel ──
+if($('#adminBtn'))$('#adminBtn').addEventListener('click',async()=>{
+  $('#adminModal').classList.remove('hidden')
+  await loadAdminUsers()
+})
+$('#closeAdmin').addEventListener('click',()=>$('#adminModal').classList.add('hidden'))
+$('#adminModal').addEventListener('click',e=>{if(e.target===$('#adminModal'))$('#adminModal').classList.add('hidden')})
+
+async function loadAdminUsers(){
+  const body=$('#adminUserTableBody')
+  try{
+    const users=await(await fetch('/api/admin/users')).json()
+    if(!users.length){body.innerHTML='<tr><td colspan="5" class="text-gray-500 text-sm py-8 text-center">Sin usuarios</td></tr>';return}
+    body.innerHTML=users.map(u=>`<tr class="border-t border-gray-700/30 hover:bg-gray-700/30">
+      <td class="py-2.5 px-3 text-xs text-gray-400">${u.id}</td>
+      <td class="py-2.5 px-3 text-sm">${escHtml(u.username)}${u.is_system?' <span class="inline-block bg-yellow-600/30 text-yellow-400 text-[10px] px-1.5 py-0.5 rounded font-semibold" title="Usuario autogenerado por el sistema">SISTEMA</span>':''}</td>
+      <td class="py-2.5 px-3 text-sm"><select class="role-select bg-gray-700 border border-gray-600 rounded text-xs py-1 px-2 text-gray-100 focus:outline-none focus:ring-1 focus:ring-green-500" data-user-id="${u.id}">
+        <option value="user" ${u.role==='user'?'selected':''}>Usuario</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      </select></td>
+      <td class="py-2.5 px-3 text-xs text-gray-400 hidden sm:table-cell">${u.created_at}</td>
+      <td class="py-2.5 px-3 text-right">
+        <button class="delete-user-btn text-gray-500 hover:text-red-400 transition text-xs" data-user-id="${u.id}" data-username="${escHtml(u.username)}" data-is-system="${u.is_system}">
+          <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </td>
+    </tr>`).join('')
+    // Role change handlers
+    $$('.role-select').forEach(sel=>{
+      sel.addEventListener('change',async()=>{
+        const uid=parseInt(sel.dataset.userId),role=sel.value
+        try{
+          await fetch(`/api/admin/users/${uid}/role`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})})
+          showToast('Rol actualizado')
+        }catch(e){showToast('Error al actualizar rol');loadAdminUsers()}
+      })
+    })
+    // Delete handlers
+    $$('.delete-user-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const uid=parseInt(btn.dataset.userId),name=btn.dataset.username
+        if(!confirm(`¿Eliminar al usuario "${name}"?`))return
+        try{
+          const r=await fetch(`/api/admin/users/${uid}`,{method:'DELETE'})
+          if(!r.ok){const e=await r.json();showToast(e.detail||'Error');return}
+          showToast(`Usuario "${name}" eliminado`);loadAdminUsers()
+        }catch(e){showToast('Error')}
+      })
+    })
+  }catch(e){body.innerHTML='<tr><td colspan="5" class="text-red-400 text-sm py-8 text-center">Error</td></tr>'}
+}
+
+$('#adminCreateUserBtn').addEventListener('click',async()=>{
+  const username=$('#adminNewUser').value.trim(),password=$('#adminNewPass').value,role=$('#adminNewRole').value
+  if(!username||!password){showToast('Completa todos los campos');return}
+  try{
+    const r=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role})})
+    if(!r.ok){const e=await r.json();showToast(e.detail||'Error');return}
+    showToast(`Usuario "${username}" creado`)
+    $('#adminNewUser').value='';$('#adminNewPass').value=''
+    loadAdminUsers()
+  }catch(e){showToast('Error')}
+})
+
+// ── Search mode toggle ──
+function toggleSearchMode(){
+  isPlaylistMode=!isPlaylistMode
+  const sb=$('#searchModeBtn'),pb=$('#playlistModeBtn')
+  sb.classList.toggle('bg-green-700',!isPlaylistMode);sb.classList.toggle('text-white',!isPlaylistMode)
+  sb.classList.toggle('bg-gray-700',isPlaylistMode);sb.classList.toggle('text-gray-300',isPlaylistMode)
+  pb.classList.toggle('bg-green-700',isPlaylistMode);pb.classList.toggle('text-white',isPlaylistMode)
+  pb.classList.toggle('bg-gray-700',!isPlaylistMode);pb.classList.toggle('text-gray-300',!isPlaylistMode)
+  searchPage=0;searchTotal=0;$('#pagination').classList.add('hidden')
+  $('#playlistUrlInput').classList.toggle('hidden',!isPlaylistMode)
+  $('#searchInput').placeholder=isPlaylistMode?'Buscar playlist o pegar URL...':'Buscar artista o canción...'
+  if(!isPlaylistMode){$('#searchInput').value='';$('#resultsArea').innerHTML='';$('#clearSearch').classList.add('hidden')}
+}
+$('#searchModeBtn').addEventListener('click',()=>{if(isPlaylistMode)toggleSearchMode()})
+$('#playlistModeBtn').addEventListener('click',()=>{if(!isPlaylistMode)toggleSearchMode()})
+
+// ── Tabs ──
+$$('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    $$('.tab-btn').forEach(b=>b.classList.remove('tab-active'));btn.classList.add('tab-active')
+    $$('.tab-content').forEach(c=>c.classList.add('hidden'))
+    const el=document.getElementById('tab'+btn.dataset.tab.charAt(0).toUpperCase()+btn.dataset.tab.slice(1))
+    if(el)el.classList.remove('hidden')
+    const actions={artists:loadLibraryArtists,albums:loadLibraryAlbums,tracks:loadLibraryTracks}
+    if(actions[btn.dataset.tab])actions[btn.dataset.tab]()
+  })
+})
+$$('.tab-btn')[0].classList.add('tab-active')
+
+// ── Download button feedback ──
+async function dlAction(btn,action){
+  if(btn.dataset.loading==='1')return
+  btn.dataset.loading='1';const orig=btn.innerHTML
+  btn.innerHTML='<span class="spinner"></span>';btn.style.pointerEvents='none'
+  try{await action();btn.innerHTML='<span style="color:#22c55e;font-weight:bold">✓</span>';setTimeout(()=>{btn.innerHTML=orig;btn.dataset.loading='0';btn.style.pointerEvents=''},1500)}
+  catch(e){btn.innerHTML='<span style="color:#ef4444;font-weight:bold">✗</span>';setTimeout(()=>{btn.innerHTML=orig;btn.dataset.loading='0';btn.style.pointerEvents=''},1500)}
+}
+
+// ── Search ──
+const searchInput=$('#searchInput'),resultsArea=$('#resultsArea'),clearBtn=$('#clearSearch')
+clearBtn.addEventListener('click',()=>{searchInput.value='';resultsArea.innerHTML='';$('#pagination').classList.add('hidden');clearBtn.classList.add('hidden')})
+
+searchInput.addEventListener('input',debounce(()=>{
+  const q=searchInput.value.trim();searchPage=0;$('#pagination').classList.add('hidden')
+  clearBtn.classList.toggle('hidden',!q)
+  if(!q){resultsArea.innerHTML='';return}
+  if(isPlaylistMode){
+    resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Escribe para buscar playlists o pega una URL arriba</p>'
+    doSearch()
+    return
+  }
+  doSearch()
+},400))
+
+async function doSearch(){
+  const q=searchInput.value.trim()
+  if(!q){resultsArea.innerHTML='';return}
+  resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Buscando...</p>'
+  try{
+    if(isPlaylistMode){
+      const res=await fetch(`/api/search/playlists?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${searchPage*PAGE_SIZE}`)
+      if(!res.ok){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error</p>';return}
+      const data=await res.json();searchTotal=data.total||0
+      if(!data.items||!data.items.length){resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Sin resultados</p>';return}
+      renderPlaylistResults(data.items)
+      updatePagination()
+    }else{
+      const [ar,tr]=await Promise.all([
+        fetch(`/api/search/artists?q=${encodeURIComponent(q)}&limit=5&offset=0`),
+        fetch(`/api/search/tracks?q=${encodeURIComponent(q)}&limit=10&offset=0`),
+      ])
+      const artists=await ar.json(),tracks=await tr.json()
+      let downloadedMap={}
+      if(tracks.items&&tracks.items.length){
+        try{const r=await fetch('/api/library/check-tracks?ids='+tracks.items.map(t=>t.id).join(','));downloadedMap=await r.json()}catch(e){}
+      }
+      renderUnifiedResults(artists.items||[],tracks.items||[],downloadedMap)
+    }
+  }catch(e){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error de conexión</p>'}
+}
+
+function updatePagination(){
+  const p=$('#pagination'),totalPages=Math.ceil(searchTotal/PAGE_SIZE)
+  if(totalPages<=1){p.classList.add('hidden');return}
+  p.classList.remove('hidden')
+  $('#pageInfo').textContent=`Página ${searchPage+1} de ${totalPages} (${searchTotal})`
+  $('#prevPage').disabled=searchPage===0;$('#nextPage').disabled=searchPage>=totalPages-1
+}
+$('#prevPage').addEventListener('click',()=>{if(isPlaylistMode&&searchPage>0){searchPage--;doSearch();window.scrollTo({top:0,behavior:'smooth'})}})
+$('#nextPage').addEventListener('click',()=>{if(isPlaylistMode){const t=Math.ceil(searchTotal/PAGE_SIZE);if(searchPage<t-1){searchPage++;doSearch();window.scrollTo({top:0,behavior:'smooth'})}}})
+
+// ── Playlist URL ──
+$('#parsePlaylistBtn').addEventListener('click',async()=>{
+  const url=$('#playlistUrlField').value.trim()
+  if(!url){showToast('Introduce una URL');return}
+  resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Cargando...</p>'
+  try{
+    const res=await fetch('/api/playlist/parse',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
+    if(!res.ok){resultsArea.innerHTML='<p class="text-red-400 text-sm">URL inválida</p>';return}
+    const data=await res.json()
+    if(!data.tracks||!data.tracks.length){resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Playlist vacía</p>';return}
+    renderPlaylistPreview(data.playlist_id,data.tracks)
+  }catch(e){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error</p>'}
+})
+
+function renderPlaylistPreview(pid,tracks){
+  let html=`<div class="bg-gray-800 rounded-xl p-4 mb-4 fade-in">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div><h2 class="text-lg font-bold">Vista previa</h2><p class="text-xs text-gray-400">${tracks.length} canciones</p></div>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="$$('.track-check').forEach(c=>c.checked=true)" class="text-xs text-gray-400 hover:text-white px-3 py-1.5 border border-gray-600 rounded-lg">Sel. todas</button>
+        <button onclick="$$('.track-check').forEach(c=>c.checked=false)" class="text-xs text-gray-400 hover:text-white px-3 py-1.5 border border-gray-600 rounded-lg">Ninguna</button>
+        <button class="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-lg transition" onclick="dlAction(this,async()=>await downloadSelectedPlaylistTracks('${pid}'))">Descargar seleccionadas</button>
+      </div>
+    </div>
+  </div>
+  <div class="space-y-2" id="playlistTrackList">`
+  tracks.forEach(t=>{
+    const a=t.artists[0]
+    html+=`<div class="playlist-track bg-gray-800/60 rounded-xl px-4 py-3.5 flex items-center gap-3 border border-gray-700/40 hover:border-gray-600 transition" data-track-id="${t.id}">
+      <input type="checkbox" class="track-check" checked>
+      <div class="w-11 h-11 rounded-lg bg-gray-700 overflow-hidden flex-shrink-0">${
+        t.album?.image_url?`<img src="${t.album.image_url}" class="w-full h-full object-cover">`
+        :`<div class="w-full h-full flex items-center justify-center text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">${escHtml(t.name)}</p>
+        <p class="text-xs text-gray-400">${a?escHtml(a.name):''} · ${msToTime(t.duration_ms)}</p>
+      </div>
+      ${t.preview_url?`<button onclick="playPreview('${escHtml(t.name)}','${a?escHtml(a.name):''}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs flex-shrink-0">▶</button>`:''}
+    </div>`
+  })
+  resultsArea.innerHTML=html
+}
+function selectAllPlaylistTracks(sel){$$('.track-check').forEach(c=>c.checked=sel)}
+async function downloadSelectedPlaylistTracks(pid){
+  const selected=$$('.track-check:checked').map(c=>c.closest('[data-track-id]').dataset.trackId)
+  if(!selected.length){showToast('Selecciona al menos una');throw new Error()}
+  const r=await fetch(`/api/download/playlist?playlist_id=${pid}&track_ids=${selected.join(',')}`,{method:'POST'})
+  if(!r.ok)throw new Error()
+  updateQueueBadge();showToast(`${selected.length} canciones en cola`)
+}
+
+// ── Render: Artists ──
+function renderArtistResults(artists,_dm){
+  resultsArea.innerHTML=`<p class="text-xs text-gray-500 mb-3 fade-in">${searchTotal} resultados</p>
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 fade-in">${
+    artists.map(a=>`<div class="bg-gray-800/80 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-green-500 transition group" onclick="showArtistDetail('${a.id}')">
+      <div class="aspect-square bg-gray-700 overflow-hidden">${
+        a.image_url?`<img src="${a.image_url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+        :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>`}
+      </div>
+      <div class="p-3"><p class="font-semibold text-sm truncate">${escHtml(a.name)}</p><p class="text-xs text-gray-400">${(a.followers||0).toLocaleString()} seguidores</p></div>
+    </div>`).join('')}
+  </div>`
+}
+
+// ── Render: Tracks ──
+function renderTrackResults(tracks,downloadedMap){
+  resultsArea.innerHTML=`<p class="text-xs text-gray-500 mb-3 fade-in">${searchTotal} canciones</p>
+  <div class="space-y-2 fade-in">${
+    tracks.map(t=>{
+      const dl=downloadedMap&&downloadedMap[t.id]
+      const al=t.artists.map(a=>`<span class="cursor-pointer text-green-400 hover:text-green-300" onclick="showArtistDetail('${a.id}')">${escHtml(a.name)}</span>`).join(', ')
+      return `<div class="bg-gray-800/60 rounded-xl px-4 py-3 flex items-center gap-3 border border-gray-700/40 ${dl?'opacity-75':''}">
+        <div class="w-11 h-11 rounded-lg bg-gray-700 overflow-hidden flex-shrink-0">${
+          t.album?.image_url?`<img src="${t.album.image_url}" class="w-full h-full object-cover">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">${escHtml(t.name)} ${dl?'<span class="text-green-400 text-xs ml-1">✓</span>':''}</p>
+          <p class="text-xs text-gray-400">${al} · ${msToTime(t.duration_ms)}</p>
+        </div>
+        ${t.preview_url?`<button onclick="playPreview('${escHtml(t.name)}','${escHtml(t.artists[0]?.name||'')}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs flex-shrink-0">▶</button>`:''}
+        ${dl?'<span class="text-green-400 text-sm font-bold flex-shrink-0">✓</span>'
+          :`<button class="dl-btn bg-green-600 hover:bg-green-500 text-white text-xs py-1.5 px-3 rounded-lg transition flex-shrink-0" onclick="dlAction(this,()=>downloadSingleTrack('${t.id}'))">Descargar</button>`}
+      </div>`
+    }).join('')}
+  </div>`
+}
+
+// ── Render: Playlists (search) ──
+function renderPlaylistResults(playlists){
+  resultsArea.innerHTML=`<p class="text-xs text-gray-500 mb-3 fade-in">${searchTotal} playlists</p>
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 fade-in">${
+    playlists.map(p=>`<div class="bg-gray-800/80 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-green-500 transition group" onclick="showPlaylistDetail('${p.id}')">
+      <div class="aspect-square bg-gray-700 overflow-hidden">${
+        p.image_url?`<img src="${p.image_url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+        :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`}
+      </div>
+      <div class="p-3"><p class="font-semibold text-sm truncate">${escHtml(p.name)}</p><p class="text-xs text-gray-400">${p.tracks_total} · ${escHtml(p.owner||'')}</p></div>
+    </div>`).join('')}
+  </div>`
+}
+
+// ── Render: Unified search (artists + tracks) ──
+function renderUnifiedResults(artists,tracks,downloadedMap){
+  let html=''
+  if(artists.length){
+    html+=`<div class="mb-6 fade-in"><h3 class="text-sm font-semibold text-gray-300 mb-2.5">Artistas</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${
+      artists.map(a=>`<div class="bg-gray-800/80 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-green-500 transition group" onclick="showArtistDetail('${a.id}')">
+        <div class="aspect-square bg-gray-700 overflow-hidden">${
+          a.image_url?`<img src="${a.image_url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>`}
+        </div>
+        <div class="p-3"><p class="font-semibold text-sm truncate">${escHtml(a.name)}</p><p class="text-xs text-gray-400">${(a.followers||0).toLocaleString()} seguidores</p></div>
+      </div>`).join('')}
+    </div></div>`
+  }
+  if(tracks.length){
+    html+=`<div class="fade-in"><h3 class="text-sm font-semibold text-gray-300 mb-2.5">Canciones</h3>
+      <div class="space-y-2">${
+      tracks.map(t=>{
+        const dl=downloadedMap&&downloadedMap[t.id]
+        const al=t.artists.map(a=>`<span class="cursor-pointer text-green-400 hover:text-green-300" onclick="showArtistDetail('${a.id}')">${escHtml(a.name)}</span>`).join(', ')
+        return `<div class="bg-gray-800/60 rounded-xl px-4 py-3 flex items-center gap-3 border border-gray-700/40 ${dl?'opacity-75':''}">
+          <div class="w-11 h-11 rounded-lg bg-gray-700 overflow-hidden flex-shrink-0">${
+            t.album?.image_url?`<img src="${t.album.image_url}" class="w-full h-full object-cover">`
+            :`<div class="w-full h-full flex items-center justify-center text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">${escHtml(t.name)} ${dl?'<span class="text-green-400 text-xs ml-1">✓</span>':''}</p>
+            <p class="text-xs text-gray-400">${al} · ${msToTime(t.duration_ms)}</p>
+          </div>
+          ${t.preview_url?`<button onclick="playPreview('${escHtml(t.name)}','${escHtml(t.artists[0]?.name||'')}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs flex-shrink-0">▶</button>`:''}
+          ${dl?'<span class="text-green-400 text-sm font-bold flex-shrink-0">✓</span>'
+            :`<button class="dl-btn bg-green-600 hover:bg-green-500 text-white text-xs py-1.5 px-3 rounded-lg transition flex-shrink-0" onclick="dlAction(this,()=>downloadSingleTrack('${t.id}'))">Descargar</button>`}
+        </div>`
+      }).join('')}
+    </div></div>`
+  }
+  if(!artists.length&&!tracks.length){
+    html='<p class="text-gray-500 text-sm py-4">Sin resultados</p>'
+  }
+  resultsArea.innerHTML=html
+}
+
+// ── Artist detail (from Spotify search) ──
+async function showArtistDetail(artistId){
+  searchInput.value='';clearBtn.classList.add('hidden');$('#pagination').classList.add('hidden')
+  resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Cargando...</p>';window.scrollTo({top:0,behavior:'smooth'})
+  try{
+    const [ar,al,tr]=await Promise.all([fetch(`/api/artists/${artistId}`),fetch(`/api/artists/${artistId}/albums`),fetch(`/api/artists/${artistId}/top-tracks`)])
+    if(!ar.ok)throw Error()
+    const artist=await ar.json(),albums=await al.json(),topTracks=await tr.json()
+
+    let dlMap={}
+    if(topTracks.length){
+      try{const r=await fetch('/api/library/check-tracks?ids='+topTracks.map(t=>t.id).join(','));dlMap=await r.json()}catch(e){}
+    }
+    let libAlbums=[]
+    try{const r=await fetch(`/api/library/artists/${artistId}/albums`);libAlbums=await r.json()}catch(e){}
+    const libAlbumIds=new Set(libAlbums.map(a=>a.id))
+
+    const ttDl=topTracks.slice(0,5).filter(t=>dlMap[t.id]).length
+    const albumsDl=albums.filter(a=>libAlbumIds.has(a.id)).length
+
+    let html=`<div class="bg-gray-800/80 rounded-xl p-5 mb-4 fade-in border border-gray-700/40">
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">${
+          artist.image_url?`<img src="${artist.image_url}" class="w-full h-full object-cover">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>`}
+        </div>
+        <div class="flex-1 min-w-0">
+          <h2 class="text-xl font-bold">${escHtml(artist.name)}</h2>
+          <p class="text-xs text-gray-400">${(artist.genres||[]).join(', ')||''}</p>
+        </div>
+        ${albumsDl===albums.length?`<span class="text-green-400 text-sm font-bold">✓ Todo descargado</span>`
+          :`<button class="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-lg transition" onclick="dlAction(this,async()=>{const r=await(await fetch('/api/artists/${artistId}/albums')).json();for(const a of r)await fetch('/api/download/album?album_id='+a.id+'&artist_id=${artistId}',{method:'POST'});updateQueueBadge();showToast('Todo en cola')})">Descargar todo</button>`}
+        <button onclick="goHome()" class="text-gray-400 hover:text-white text-sm">← Volver</button>
+      </div>
+    </div>`
+    if(topTracks.length){
+      html+=`<div class="mb-6 fade-in"><h3 class="text-sm font-semibold text-gray-300 mb-2.5">Más populares <span class="text-gray-500 font-normal">${ttDl}/${topTracks.slice(0,5).length}</span></h3>
+      <div class="bg-gray-800/60 rounded-xl border border-gray-700/40 overflow-hidden">`
+      topTracks.slice(0,5).forEach((t,i)=>{
+        const dl=dlMap[t.id]
+        html+=`<div class="flex items-center gap-3 px-4 py-2.5 ${i?'border-t border-gray-700/40':''}">
+          <span class="text-xs text-gray-500 w-5">${i+1}</span>
+          <div class="flex-1 min-w-0"><p class="text-sm truncate">${escHtml(t.name)}</p><p class="text-xs text-gray-400">${msToTime(t.duration_ms)}</p></div>
+          ${t.preview_url?`<button onclick="playPreview('${escHtml(t.name)}','${escHtml(artist.name)}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs">▶</button>`:''}
+          ${dl?`<span class="text-green-400 text-sm font-bold">✓</span>`
+            :`<button class="dl-btn bg-green-600 hover:bg-green-500 text-white text-xs py-1.5 px-3 rounded-lg transition" onclick="dlAction(this,()=>downloadSingleTrack('${t.id}'))">Descargar</button>`}
+        </div>`
+      })
+      html+=`</div></div>`
+    }
+    html+=`<div class="fade-in"><h3 class="text-sm font-semibold text-gray-300 mb-2.5">${albums.length} álbumes <span class="text-gray-500 font-normal">${albumsDl} descargados</span></h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${
+      albums.map(alb=>{
+        const inLib=libAlbumIds.has(alb.id)
+        return `<div class="bg-gray-800/80 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-green-500 transition ${inLib?'ring-1 ring-green-500/50':''}" onclick="showAlbumDetail('${artistId}','${alb.id}','${escHtml(artist.name)}')">
+        <div class="aspect-square bg-gray-700 overflow-hidden">${
+          alb.image_url?`<img src="${alb.image_url}" class="w-full h-full object-cover">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`}
+        </div>
+        <div class="p-3"><p class="font-semibold text-sm truncate">${escHtml(alb.name)}</p><p class="text-xs text-gray-400">${alb.year||'--'} · ${alb.total_tracks} ${inLib?'<span class="text-green-400">✓</span>':''}</p></div>
+      </div>`}).join('')}
+      </div></div>`
+    resultsArea.innerHTML=html
+  }catch(e){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error</p>'}
+}
+
+// ── Album detail (from Spotify search) ──
+async function showAlbumDetail(artistId,albumId,artistName){
+  resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Cargando...</p>';window.scrollTo({top:0,behavior:'smooth'})
+  try{
+    const [ar,tr]=await Promise.all([fetch(`/api/artists/${artistId}/albums`),fetch(`/api/albums/${albumId}/tracks`)])
+    const albums=await ar.json(),tracks=await tr.json()
+    const album=albums.find(a=>a.id===albumId)
+    if(!album)throw Error()
+    let dlMap={}
+    try{const r=await fetch('/api/library/check-tracks?ids='+tracks.map(t=>t.id).join(','));dlMap=await r.json()}catch(e){}
+    const dlCount=tracks.filter(t=>dlMap[t.id]).length
+    const allDl=dlCount===tracks.length
+    let html=`<div class="bg-gray-800/80 rounded-xl p-4 mb-4 fade-in border border-gray-700/40">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">${
+          album.image_url?`<img src="${album.image_url}" class="w-full h-full object-cover">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`}
+        </div>
+        <div class="flex-1 min-w-0"><h2 class="text-lg font-bold">${escHtml(album.name)}</h2><p class="text-xs text-gray-400">${escHtml(artistName)} · ${album.year||'--'} · ${dlCount}/${tracks.length} descargadas</p></div>
+        ${allDl?`<span class="text-green-400 text-sm font-bold">✓ Descargado</span>`
+          :`<button class="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-lg transition" onclick="dlAction(this,async()=>{await downloadFullAlbum('${artistId}','${albumId}');showToast('Álbum en cola')})">Descargar</button>`}
+        <button onclick="showArtistDetail('${artistId}')" class="text-gray-400 hover:text-white text-sm">←</button>
+      </div>
+    </div>
+    <div class="bg-gray-800/60 rounded-xl border border-gray-700/40 overflow-hidden fade-in">
+      <table class="w-full text-sm"><thead class="bg-gray-700/50 text-gray-400 uppercase text-xs">
+        <tr><th class="py-3 px-4 text-left w-8">#</th><th class="py-3 px-4 text-left">Título</th><th class="py-3 px-4 text-left hidden sm:table-cell">Duración</th><th class="py-3 px-4 text-right">Acción</th></tr>
+      </thead><tbody>`
+    tracks.forEach((t,i)=>{
+      const dl=dlMap[t.id]
+      html+=`<tr class="border-t border-gray-700/30 hover:bg-gray-700/30 ${dl?'opacity-75':''}">
+        <td class="py-2.5 px-4 text-gray-400 text-xs">${t.track_number||i+1}</td>
+        <td class="py-2.5 px-4"><p class="text-sm truncate max-w-xs">${escHtml(t.name)} ${dl?'<span class="text-green-400 text-xs">✓</span>':''}</p></td>
+        <td class="py-2.5 px-4 text-sm text-gray-400 hidden sm:table-cell">${msToTime(t.duration_ms)}</td>
+        <td class="py-2.5 px-4 text-right whitespace-nowrap">
+          ${t.preview_url?`<button onclick="playPreview('${escHtml(t.name)}','${escHtml(artistName)}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs mr-2">▶</button>`:''}
+          ${dl?`<span class="text-green-400 text-sm font-bold">✓</span>`
+            :`<button class="dl-btn bg-green-600 hover:bg-green-500 text-white text-xs py-1.5 px-3 rounded-lg transition" onclick="dlAction(this,()=>downloadSingleTrack('${t.id}'))">Descargar</button>`}
+        </td>
+      </tr>`
+    })
+    html+=`</tbody></table></div>`
+    resultsArea.innerHTML=html
+  }catch(e){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error</p>'}
+}
+
+// ── Local library: Artist detail ──
+async function showLocalArtistDetail(id,name,image){
+  searchInput.value='';clearBtn.classList.add('hidden');$('#pagination').classList.add('hidden')
+  resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Cargando...</p>';window.scrollTo({top:0,behavior:'smooth'})
+  try{
+    const albums=await(await fetch(`/api/library/artists/${id}/albums`)).json()
+    if(!albums.length){resultsArea.innerHTML='<p class="text-gray-500 text-sm py-8 text-center">Sin álbumes descargados</p>';return}
+    for(const alb of albums){
+      const tracks=await(await fetch(`/api/library/albums/${alb.id}/tracks`)).json()
+      alb.dlCount=tracks.filter(t=>t.downloaded).length
+      alb.total=tracks.length
+    }
+    let html=`<div class="bg-gray-800/80 rounded-xl p-4 mb-4 fade-in border border-gray-700/40">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">${
+          image?`<img src="${image}" class="w-full h-full object-cover">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>`}
+        </div>
+        <div class="flex-1 min-w-0"><h2 class="text-lg font-bold">${escHtml(name)}</h2><p class="text-xs text-gray-400">${albums.length} álbumes en biblioteca</p></div>
+        <button onclick="loadLibraryArtists()" class="text-gray-400 hover:text-white text-sm">← Volver</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 fade-in">${
+      albums.map(alb=>`<div class="bg-gray-800/80 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-green-500 transition" onclick="showLocalAlbumDetail('${alb.id}','${escHtml(alb.title)}','${escHtml(name)}')">
+        <div class="aspect-square bg-gray-700 overflow-hidden">${
+          alb.image_url?`<img src="${alb.image_url}" class="w-full h-full object-cover">`
+          :(image?`<img src="${image}" class="w-full h-full object-cover">`
+          :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`)}
+        </div>
+        <div class="p-3"><p class="font-semibold text-sm truncate">${escHtml(alb.title)}</p><p class="text-xs text-gray-400">${alb.dlCount}/${alb.total} descargadas</p></div>
+      </div>`).join('')}
+    </div>`
+    resultsArea.innerHTML=html
+  }catch(e){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error</p>'}
+}
+
+// ── Local library: Album detail ──
+async function showLocalAlbumDetail(albumId,title,artistName,artistId){
+  resultsArea.innerHTML='<p class="text-gray-500 text-sm py-4">Cargando...</p>';window.scrollTo({top:0,behavior:'smooth'})
+  try{
+    const tracks=await(await fetch(`/api/library/albums/${albumId}/tracks`)).json()
+    const dlTracks=tracks.filter(t=>t.downloaded)
+    if(!dlTracks.length){resultsArea.innerHTML='<p class="text-gray-500 text-sm py-8 text-center">Este álbum no tiene canciones descargadas</p>';return}
+    const artistImage=tracks.find(t=>t.file_path)?null:null
+    let html=`<div class="bg-gray-800/80 rounded-xl p-4 mb-4 fade-in border border-gray-700/40">
+      <div class="flex items-center gap-4">
+        <div class="flex-1 min-w-0"><h2 class="text-lg font-bold">${escHtml(title)}</h2><p class="text-xs text-gray-400">${escHtml(artistName)} · ${dlTracks.length} canciones descargadas</p></div>
+        ${artistId?`<button onclick="showLocalArtistDetail('${artistId}','${escHtml(artistName)}')" class="text-gray-400 hover:text-white text-sm">← Volver</button>`:''}
+      </div>
+    </div>
+    <div class="bg-gray-800/60 rounded-xl border border-gray-700/40 overflow-hidden fade-in">
+      <table class="w-full text-sm"><thead class="bg-gray-700/50 text-gray-400 uppercase text-xs">
+        <tr><th class="py-3 px-4 text-left w-8">#</th><th class="py-3 px-4 text-left">Título</th><th class="py-3 px-4 text-left hidden sm:table-cell">Duración</th><th class="py-3 px-4 text-center">Preview</th><th class="py-3 px-4 text-right">Archivo</th></tr>
+      </thead><tbody>`
+    dlTracks.forEach((t,i)=>{
+      const fileName=t.file_path?t.file_path.split('/').pop()||t.file_path.split('\\').pop()||'':null
+      html+=`<tr class="border-t border-gray-700/30 hover:bg-gray-700/30">
+        <td class="py-2.5 px-4 text-gray-400 text-xs">${i+1}</td>
+        <td class="py-2.5 px-4"><p class="text-sm truncate max-w-xs">${escHtml(t.title)} <span class="text-green-400 text-xs">✓</span></p></td>
+        <td class="py-2.5 px-4 text-sm text-gray-400 hidden sm:table-cell">${msToTime(t.duration_ms)}</td>
+        <td class="py-2.5 px-4 text-center">${t.preview_url?`<button onclick="playPreview('${escHtml(t.title)}','${escHtml(artistName)}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs">▶</button>`:'<span class="text-gray-600 text-xs">—</span>'}</td>
+        <td class="py-2.5 px-4 text-right text-xs text-gray-500 truncate max-w-32" title="${escHtml(t.file_path||'')}">${fileName||'✓'}</td>
+      </tr>`
+    })
+    html+=`</tbody></table></div>`
+    resultsArea.innerHTML=html
+  }catch(e){resultsArea.innerHTML='<p class="text-red-400 text-sm">Error</p>'}
+}
+
+// ── Playlist detail ──
+async function showPlaylistDetail(playlistId){
+  $('#playlistUrlField').value='';$('#playlistUrlInput').classList.remove('hidden')
+  $('#parsePlaylistBtn').click()
+}
+
+// ── Downloads ──
+async function downloadSingleTrack(trackId){
+  const r=await fetch(`/api/download/track?track_id=${trackId}`,{method:'POST'})
+  if(!r.ok)throw new Error()
+  updateQueueBadge();showToast('Canción en cola')
+}
+async function downloadFullAlbum(artistId,albumId){
+  const r=await fetch(`/api/download/album?album_id=${albumId}&artist_id=${artistId}`,{method:'POST'})
+  if(!r.ok)throw new Error()
+  updateQueueBadge()
+}
+
+// ── Queue panel ──
+$('#queuePanelBtn').addEventListener('click',()=>{$('#queuePanel').classList.toggle('hidden')})
+
+async function updateQueueBadge(){
+  try{
+    const r=await fetch('/api/queue/status'),d=await r.json()
+    const dot=$('#queueBadgeDot'),cnt=$('#queueCount')
+    if(d.pending>0||(d.items&&d.items.some(i=>i.status==='downloading'||i.status==='queued'))){
+      dot.classList.remove('hidden')
+    }else{dot.classList.add('hidden')}
+    cnt.textContent=d.pending+' pendientes'
+    // Update queue panel
+    renderQueueItems(d.items||[])
+  }catch(e){}
+}
+
+function renderQueueItems(items){
+  const list=$('#queueList')
+  const active=items.filter(i=>i.status==='queued'||i.status==='downloading')
+  const recent=items.filter(i=>i.status!=='queued'&&i.status!=='downloading').slice(0,10)
+  if(!active.length&&!recent.length){list.innerHTML='<p class="text-xs text-gray-500 text-center py-4">Sin actividad</p>';return}
+  let html=''
+  active.forEach(i=>{
+    const isDl=i.status==='downloading'
+    html+=`<div class="queue-item bg-gray-800/60 rounded-lg px-3 py-2.5 flex items-center gap-3 border border-gray-700/30">
+      ${isDl?'<span class="spinner"></span>':'<span class="text-yellow-400 text-xs">⏳</span>'}
+      <div class="flex-1 min-w-0"><p class="text-xs font-medium truncate">${escHtml(i.track_title||'')}</p><p class="text-xs text-gray-400 truncate">${escHtml(i.artist_name||'')}</p></div>
+      <span class="text-xs ${isDl?'text-green-400':'text-yellow-400'}">${isDl?'Descargando...':'En cola'}</span>
+    </div>`
+  })
+  recent.forEach(i=>{
+    const ok=i.status==='completed'
+    html+=`<div class="queue-item bg-gray-800/40 rounded-lg px-3 py-2 flex items-center gap-3 opacity-70">
+      <span class="text-xs ${ok?'text-green-400':'text-red-400'}">${ok?'✓':'✗'}</span>
+      <div class="flex-1 min-w-0"><p class="text-xs truncate">${escHtml(i.track_title||'')}</p></div>
+      <span class="text-xs text-gray-500">${ok?'Completado':(i.error||'Fallido')}</span>
+    </div>`
+  })
+  list.innerHTML=html
+}
+setInterval(updateQueueBadge,2000)
+
+// ── Player ──
+function playPreview(trackName,artistName,previewUrl){
+  if(!previewUrl)return
+  $('#player').classList.remove('hidden')
+  $('#playerTrack').textContent=trackName;$('#playerArtist').textContent=artistName
+  const a=$('#audioPlayer');a.src=previewUrl;a.play()
+}
+$('#playerClose').addEventListener('click',()=>{$('#player').classList.add('hidden');$('#audioPlayer').pause()})
+
+// ── Library: Artists ──
+async function loadLibraryArtists(){
+  const c=$('#tabArtists');c.innerHTML='<p class="col-span-full text-gray-500 text-sm py-8 text-center">Cargando...</p>'
+  try{
+    const r=await(await fetch('/api/library/artists')).json()
+    if(!r.length){c.innerHTML='<p class="col-span-full text-gray-500 text-sm py-8 text-center">Tu biblioteca está vacía</p>';return}
+    c.innerHTML=r.map(a=>`<div class="bg-gray-800/80 rounded-xl overflow-hidden group">
+      <div class="aspect-square bg-gray-700 overflow-hidden cursor-pointer" onclick="showLocalArtistDetail('${a.id}','${escHtml(a.name)}','${a.image_url||''}')">${
+        a.image_url?`<img src="${a.image_url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+        :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>`}
+      </div>
+      <div class="p-3 flex items-center justify-between">
+        <div class="flex-1 min-w-0 cursor-pointer" onclick="showLocalArtistDetail('${a.id}','${escHtml(a.name)}','${a.image_url||''}')"><p class="font-semibold text-sm truncate">${escHtml(a.name)}</p></div>
+        ${IS_ADMIN?`<button onclick="deleteArtist('${a.id}','${escHtml(a.name)}')" class="text-gray-500 hover:text-red-400 transition ml-2 flex-shrink-0" title="Eliminar">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>`:''}
+      </div>
+    </div>`).join('')
+  }catch(e){c.innerHTML='<p class="col-span-full text-red-400 text-sm py-8 text-center">Error</p>'}
+}
+
+async function deleteArtist(id,name){
+  if(!confirm(`¿Eliminar a ${name} y todas sus canciones?`))return
+  try{await fetch(`/api/library/artists/${id}`,{method:'DELETE'});showToast(`${name} eliminado`);loadLibraryArtists()}catch(e){showToast('Error')}
+}
+
+// ── Library: Albums ──
+async function loadLibraryAlbums(){
+  const c=$('#tabAlbums');c.innerHTML='<p class="col-span-full text-gray-500 text-sm py-8 text-center">Cargando...</p>'
+  try{
+    const artists=await(await fetch('/api/library/artists')).json();let all=[]
+    for(const a of artists){
+      const albums=await(await fetch(`/api/library/artists/${a.id}/albums`)).json()
+      for(const alb of albums){
+        const tracks=await(await fetch(`/api/library/albums/${alb.id}/tracks`)).json()
+        all.push({...alb,artist_name:a.name,artist_id:a.id,downloaded:tracks.filter(t=>t.downloaded).length,total:tracks.length,artist_image:a.image_url})
+      }
+    }
+    if(!all.length){c.innerHTML='<p class="col-span-full text-gray-500 text-sm py-8 text-center">Sin álbumes descargados</p>';return}
+    c.innerHTML=all.map(alb=>`<div class="bg-gray-800/80 rounded-xl overflow-hidden group">
+      <div class="aspect-square bg-gray-700 overflow-hidden cursor-pointer" onclick="showLocalAlbumDetail('${alb.id}','${escHtml(alb.title)}','${escHtml(alb.artist_name)}','${alb.artist_id}')">${
+        alb.image_url?`<img src="${alb.image_url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`
+        :(alb.artist_image?`<img src="${alb.artist_image}" class="w-full h-full object-cover">`
+        :`<div class="w-full h-full flex items-center justify-center text-gray-500"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg></div>`)}
+      </div>
+      <div class="p-3 flex items-center justify-between">
+        <div class="flex-1 min-w-0 cursor-pointer" onclick="showLocalAlbumDetail('${alb.id}','${escHtml(alb.title)}','${escHtml(alb.artist_name)}','${alb.artist_id}')">
+          <p class="font-semibold text-sm truncate">${escHtml(alb.title)}</p>
+          <p class="text-xs text-gray-400">${escHtml(alb.artist_name)} · ${alb.downloaded}/${alb.total}</p>
+        </div>
+        ${IS_ADMIN?`<button onclick="deleteAlbum('${alb.id}')" class="text-gray-500 hover:text-red-400 transition ml-2 flex-shrink-0" title="Eliminar">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>`:''}
+      </div>
+    </div>`).join('')
+  }catch(e){c.innerHTML='<p class="col-span-full text-red-400 text-sm py-8 text-center">Error</p>'}
+}
+
+async function deleteAlbum(id){
+  if(!confirm('¿Eliminar este álbum y todas sus canciones?'))return
+  try{await fetch(`/api/library/albums/${id}`,{method:'DELETE'});showToast('Álbum eliminado');loadLibraryAlbums()}catch(e){showToast('Error')}
+}
+
+// ── Library: Tracks ──
+async function loadLibraryTracks(){
+  const c=$('#tabTracks')
+  c.innerHTML=`<div class="bg-gray-800/60 rounded-xl border border-gray-700/40 overflow-hidden"><table class="w-full text-sm"><thead class="bg-gray-700/50 text-gray-400 uppercase text-xs"><tr><th class="py-3 px-4 text-left">#</th><th class="py-3 px-4 text-left">Título</th><th class="py-3 px-4 text-left">Álbum</th><th class="py-3 px-4 text-left">Duración</th><th class="py-3 px-4 text-left">Preview</th><th class="py-3 px-4 text-right"></th></tr></thead><tbody id="trackTableBody"></tbody></table></div>`
+  const body=$('#trackTableBody');body.innerHTML='<tr><td colspan="6" class="text-gray-500 text-sm py-8 text-center">Cargando...</td></tr>'
+  try{
+    const artists=await(await fetch('/api/library/artists')).json();let allTracks=[]
+    for(const a of artists){
+      const albums=await(await fetch(`/api/library/artists/${a.id}/albums`)).json()
+      for(const alb of albums){
+        const tracks=await(await fetch(`/api/library/albums/${alb.id}/tracks`)).json()
+        for(const t of tracks){if(t.downloaded)allTracks.push({...t,artist_name:a.name,artist_id:a.id,album_title:alb.title,album_id:alb.id})}
+      }
+    }
+    if(!allTracks.length){body.innerHTML='<tr><td colspan="6" class="text-gray-500 text-sm py-8 text-center">Sin canciones descargadas</td></tr>';return}
+    body.innerHTML=allTracks.map((t,i)=>`<tr class="border-t border-gray-700/30 hover:bg-gray-700/30">
+      <td class="py-2.5 px-4 text-gray-400 text-xs">${i+1}</td>
+      <td class="py-2.5 px-4"><p class="text-sm truncate max-w-44">${escHtml(t.title)} <span class="text-green-400 text-xs">✓</span></p><p class="text-xs text-gray-400">${escHtml(t.artist_name)}</p></td>
+      <td class="py-2.5 px-4 text-sm truncate max-w-32"><span class="cursor-pointer text-green-400 hover:text-green-300" onclick="showLocalAlbumDetail('${t.album_id}','${escHtml(t.album_title)}','${escHtml(t.artist_name)}','${t.artist_id||''}')">${escHtml(t.album_title)}</span></td>
+      <td class="py-2.5 px-4 text-sm text-gray-400">${msToTime(t.duration_ms)}</td>
+      <td class="py-2.5 px-4">${t.preview_url?`<button onclick="playPreview('${escHtml(t.title)}','${escHtml(t.artist_name)}','${t.preview_url}')" class="text-green-400 hover:text-green-300 text-xs">▶</button>`:'<span class="text-gray-600 text-xs">—</span>'}</td>
+      <td class="py-2.5 px-4 text-right">${IS_ADMIN?`<button onclick="deleteTrack('${t.id}')" class="text-gray-500 hover:text-red-400 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`:''}</td>
+    </tr>`).join('')
+  }catch(e){body.innerHTML='<tr><td colspan="6" class="text-red-400 text-sm py-8 text-center">Error</td></tr>'}
+}
+
+async function deleteTrack(id){
+  if(!confirm('¿Eliminar esta canción?'))return
+  try{await fetch(`/api/library/tracks/${id}`,{method:'DELETE'});showToast('Canción eliminada');loadLibraryTracks()}catch(e){showToast('Error')}
+}
+
+// ── Init ──
+loadLibraryArtists()
+updateQueueBadge()
+</script>
+</body>
+</html>

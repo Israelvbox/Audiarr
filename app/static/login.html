@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audiarr - Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;background:#030712;color:#f3f4f6}
+    .spinner{border:2px solid rgba(255,255,255,.2);border-top-color:#22c55e;border-radius:50%;width:16px;height:16px;animation:spin .6s linear infinite;display:inline-block;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .fade-in{animation:fadeIn .3s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm fade-in">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold tracking-tight"><span class="text-green-400">Audi</span><span>arr</span></h1>
+      <p class="text-gray-500 text-sm mt-2">Inicia sesión para continuar</p>
+    </div>
+    <div class="bg-gray-800/80 rounded-2xl p-6 border border-gray-700/40">
+      <div id="errorMsg" class="hidden text-red-400 text-sm mb-4 p-3 bg-red-900/20 rounded-lg"></div>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm text-gray-300 block mb-1.5">Usuario</label>
+          <input id="username" type="text" autocomplete="username"
+            class="w-full bg-gray-700/50 border border-gray-600 rounded-xl py-2.5 px-4 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+        </div>
+        <div>
+          <label class="text-sm text-gray-300 block mb-1.5">Contraseña</label>
+          <input id="password" type="password" autocomplete="current-password"
+            class="w-full bg-gray-700/50 border border-gray-600 rounded-xl py-2.5 px-4 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+        </div>
+        <button id="loginBtn" class="w-full bg-green-600 hover:bg-green-500 text-white font-medium py-2.5 rounded-xl transition text-sm mt-2">Ingresar</button>
+      </div>
+    </div>
+    <p class="text-center text-gray-600 text-xs mt-6">Audiarr &mdash; gestor de música autogestionado</p>
+  </div>
+  <script>
+    const $=(s,p)=>(p||document).querySelector(s)
+    const token=localStorage.getItem('audiarr_token')
+    if(token){window.location.href='/'}
+    $('#loginBtn').addEventListener('click',async()=>{
+      const username=$('#username').value.trim(),password=$('#password').value
+      if(!username||!password){showError('Completa ambos campos');return}
+      $('#loginBtn').disabled=true;$('#loginBtn').innerHTML='<span class="spinner"></span>'
+      try{
+        const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})})
+        const d=await r.json()
+        if(!r.ok){showError(d.detail||'Error');$('#loginBtn').disabled=false;$('#loginBtn').textContent='Ingresar';return}
+        localStorage.setItem('audiarr_token',d.access_token)
+        localStorage.setItem('audiarr_username',d.username)
+        localStorage.setItem('audiarr_role',d.role)
+        window.location.href='/'
+      }catch(e){showError('Error de conexión');$('#loginBtn').disabled=false;$('#loginBtn').textContent='Ingresar'}
+    })
+    $('#password').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click()})
+    function showError(msg){const e=$('#errorMsg');e.textContent=msg;e.classList.remove('hidden')}
+  </script>
+</body>
+</html>
