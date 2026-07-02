@@ -103,7 +103,7 @@ class SpotDlEngine(DownloadEngine):
 
 class DownloadManager:
     def __init__(self):
-        self._engines: list[DownloadEngine] = [YtDlpEngine(), SpotDlEngine()]
+        self._engines: list[DownloadEngine] = [SpotDlEngine(), YtDlpEngine()]
 
     async def download_track(self, item: QueueItem) -> Optional[Path]:
         album_dir = self._build_album_path(item)

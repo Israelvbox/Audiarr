@@ -223,6 +223,15 @@ def delete_artist(artist_id: str) -> list[str]:
 
 def clean_orphan_artists() -> list[str]:
     conn = get_connection()
+    # First remove albums that have no downloaded tracks (cascade deletes their tracks)
+    conn.execute(
+        """DELETE FROM albums WHERE id IN (
+               SELECT a.id FROM albums a
+               LEFT JOIN tracks t ON t.album_id = a.id AND t.downloaded = 1
+               WHERE t.id IS NULL
+           )"""
+    )
+    # Then remove artists that have no albums left
     rows = conn.execute(
         """SELECT a.id, a.name FROM artists a
            LEFT JOIN albums al ON al.artist_id = a.id
