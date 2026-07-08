@@ -98,6 +98,16 @@ Audiarr/
 - **Auth:** bcrypt, JWT (PyJWT)
 - **Frontend:** Vanilla JS, Tailwind CSS (CDN)
 
+
+## Preview
+<img src="https://github.com/Israelvbox/Audiarr/blob/main/image/Inicio.png">
+
+<img src="https://github.com/Israelvbox/Audiarr/blob/main/image/Buscador.png">
+
+<img src="https://github.com/Israelvbox/Audiarr/blob/main/image/Artista.png">
+
+
+
 ## License
 
 MIT
